@@ -1,255 +1,481 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Pokédex Pro</title>
 
-<title>Pokédex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 
 <style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
 body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    background:#111;
-    color:white;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    min-height:100vh;
+font-family:'Orbitron',sans-serif;
+background:
+radial-gradient(circle at top,#222,#050505);
+min-height:100vh;
+color:white;
+padding:20px;
+overflow-x:hidden;
 }
 
-.pokedex{
-    width:95%;
-    max-width:1000px;
-    background:#d62828;
-    border-radius:30px;
-    padding:20px;
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:20px;
-    box-shadow:0 0 30px black;
+.container{
+max-width:1400px;
+margin:auto;
 }
 
-@media(max-width:800px){
-    .pokedex{
-        grid-template-columns:1fr;
-    }
+.title{
+text-align:center;
+font-size:4rem;
+font-weight:900;
+margin-bottom:30px;
+color:#ff3131;
+text-shadow:0 0 25px red;
 }
 
-.left{
-    background:#b71c1c;
-    border-radius:20px;
-    padding:20px;
+.searchBox{
+display:flex;
+gap:15px;
+margin-bottom:30px;
+flex-wrap:wrap;
 }
 
-.right{
-    background:#8b0000;
-    border-radius:20px;
-    padding:20px;
+.searchBox input{
+flex:1;
+padding:18px;
+border:none;
+border-radius:20px;
+font-size:1.1rem;
+background:#111;
+color:white;
+border:2px solid #ff3131;
+box-shadow:0 0 15px rgba(255,0,0,0.3);
+}
+
+.searchBox button{
+padding:18px 30px;
+border:none;
+border-radius:20px;
+background:#ff3131;
+color:white;
+font-weight:bold;
+font-size:1rem;
+cursor:pointer;
+transition:0.3s;
+}
+
+.searchBox button:hover{
+transform:scale(1.05);
+box-shadow:0 0 20px red;
+}
+
+.dex{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:25px;
+}
+
+@media(max-width:1000px){
+.dex{
+grid-template-columns:1fr;
+}
+
+.title{
+font-size:2.5rem;
+}
+}
+
+.panel{
+background:rgba(20,20,20,0.95);
+border:2px solid #333;
+border-radius:30px;
+padding:25px;
+box-shadow:0 0 30px rgba(0,0,0,0.7);
+backdrop-filter:blur(10px);
 }
 
 .screen{
-    background:#98fb98;
-    border-radius:20px;
-    height:350px;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    overflow:hidden;
+background:#97ff97;
+border-radius:30px;
+padding:20px;
+height:500px;
+display:flex;
+align-items:center;
+justify-content:center;
+position:relative;
+overflow:hidden;
+}
+
+.screen::before{
+content:"";
+position:absolute;
+inset:0;
+background:linear-gradient(transparent 50%,rgba(0,0,0,0.08) 50%);
+background-size:100% 4px;
+pointer-events:none;
 }
 
 .screen img{
-    width:80%;
-    max-height:300px;
-    object-fit:contain;
+width:85%;
+max-height:420px;
+object-fit:contain;
+filter:drop-shadow(0 0 20px rgba(0,0,0,0.5));
+animation:float 3s ease-in-out infinite;
 }
 
-input{
-    width:100%;
-    padding:15px;
-    border:none;
-    border-radius:10px;
-    font-size:18px;
-    margin-bottom:20px;
+@keyframes float{
+0%{transform:translateY(0px)}
+50%{transform:translateY(-10px)}
+100%{transform:translateY(0px)}
 }
 
-button{
-    width:100%;
-    padding:15px;
-    border:none;
-    border-radius:10px;
-    background:black;
-    color:white;
-    font-size:18px;
-    cursor:pointer;
+.name{
+font-size:3rem;
+font-weight:900;
+margin-bottom:10px;
+text-transform:uppercase;
 }
 
-button:hover{
-    background:#222;
+.subtitle{
+color:#aaa;
+margin-bottom:20px;
+}
+
+.types{
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+margin-bottom:20px;
 }
 
 .type{
-    display:inline-block;
-    padding:8px 14px;
-    margin:5px;
-    border-radius:20px;
-    background:gold;
-    color:black;
-    font-weight:bold;
+padding:10px 18px;
+border-radius:999px;
+font-weight:bold;
+color:white;
+text-transform:uppercase;
+}
+
+.infoGrid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:15px;
+margin-bottom:25px;
+}
+
+.infoCard{
+background:#111;
+padding:15px;
+border-radius:20px;
+border:1px solid #333;
+}
+
+.section{
+margin-top:25px;
+}
+
+.section h2{
+margin-bottom:15px;
+font-size:1.5rem;
+color:#ff4b4b;
+}
+
+.description{
+background:black;
+padding:20px;
+border-radius:20px;
+color:#88ff88;
+line-height:1.7;
+font-size:1rem;
 }
 
 .stat{
-    margin:10px 0;
+margin-bottom:15px;
+}
+
+.statTop{
+display:flex;
+justify-content:space-between;
+margin-bottom:5px;
 }
 
 .bar{
-    height:15px;
-    background:#333;
-    border-radius:20px;
-    overflow:hidden;
+height:18px;
+background:#222;
+border-radius:999px;
+overflow:hidden;
 }
 
 .fill{
-    height:100%;
-    background:#00ff99;
+height:100%;
+background:linear-gradient(to right,#00ff99,#00bfff);
+border-radius:999px;
 }
 
-h1{
-    margin-top:0;
+.moveList,
+.roleList{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
 }
 
-.desc{
-    background:black;
-    color:#00ff99;
-    padding:15px;
-    border-radius:10px;
-    margin:20px 0;
-    min-height:80px;
+.badge{
+padding:10px 15px;
+border-radius:15px;
+background:#181818;
+border:1px solid #333;
+}
+
+.tier{
+font-size:2rem;
+font-weight:900;
+color:#00ff99;
+text-shadow:0 0 10px #00ff99;
+}
+
+.loader{
+text-align:center;
+padding:30px;
+font-size:1.2rem;
+color:#aaa;
 }
 </style>
 </head>
-
 <body>
 
-<div class="pokedex">
+<div class="container">
 
-    <div class="left">
+<h1 class="title">ULTIMATE POKÉDEX PRO</h1>
 
-        <div class="screen">
-            <img id="pokemonImage" src="">
-        </div>
+<div class="searchBox">
+<input id="search" placeholder="Nom ou numéro du Pokémon">
+<button onclick="loadPokemon()">RECHERCHER</button>
+</div>
 
-    </div>
+<div class="dex">
 
-    <div class="right">
+<div class="panel">
+<div class="screen">
+<img id="pokemonImage" src="">
+</div>
+</div>
 
-        <input type="text" id="search" placeholder="Nom ou numéro">
+<div class="panel">
+<div id="content" class="loader">
+Chargement...
+</div>
+</div>
 
-        <button onclick="loadPokemon()">
-            Rechercher
-        </button>
-
-        <h1 id="pokemonName">Chargement...</h1>
-
-        <div id="types"></div>
-
-        <div class="desc" id="description"></div>
-
-        <p><b>Taille :</b> <span id="height"></span></p>
-        <p><b>Poids :</b> <span id="weight"></span></p>
-
-        <div id="stats"></div>
-
-    </div>
+</div>
 
 </div>
 
 <script>
 
-async function loadPokemon(){
-
-    let value = document.getElementById("search").value.toLowerCase();
-
-    if(!value){
-        value = "pikachu";
-    }
-
-    // Pokémon principal
-    const pokemonRes = await fetch(
-        `https://pokeapi.co/api/v2/pokemon/${value}`
-    );
-
-    const pokemon = await pokemonRes.json();
-
-    // Description FR
-    const speciesRes = await fetch(
-        pokemon.species.url
-    );
-
-    const species = await speciesRes.json();
-
-    const frEntry = species.flavor_text_entries.find(
-        e => e.language.name === "fr"
-    );
-
-    // IMAGE
-    document.getElementById("pokemonImage").src =
-        pokemon.sprites.other["official-artwork"].front_default;
-
-    // NOM
-    document.getElementById("pokemonName").innerText =
-        pokemon.name.toUpperCase() + " #" + pokemon.id;
-
-    // TYPES
-    let typesHTML = "";
-
-    pokemon.types.forEach(t => {
-        typesHTML += `
-            <span class="type">
-                ${t.type.name}
-            </span>
-        `;
-    });
-
-    document.getElementById("types").innerHTML = typesHTML;
-
-    // DESCRIPTION
-    document.getElementById("description").innerText =
-        frEntry ? frEntry.flavor_text : "Aucune description.";
-
-    // TAILLE / POIDS
-    document.getElementById("height").innerText =
-        pokemon.height / 10 + " m";
-
-    document.getElementById("weight").innerText =
-        pokemon.weight / 10 + " kg";
-
-    // STATS
-    let statsHTML = "";
-
-    pokemon.stats.forEach(stat => {
-
-        statsHTML += `
-            <div class="stat">
-
-                <div>
-                    ${stat.stat.name} : ${stat.base_stat}
-                </div>
-
-                <div class="bar">
-                    <div class="fill"
-                         style="width:${stat.base_stat}%">
-                    </div>
-                </div>
-
-            </div>
-        `;
-    });
-
-    document.getElementById("stats").innerHTML = statsHTML;
+const typeColors={
+feu:'#ff6b35',
+eau:'#3498db',
+plante:'#2ecc71',
+électrik:'#f1c40f',
+psy:'#ff6ad5',
+glace:'#74b9ff',
+combat:'#c0392b',
+poison:'#8e44ad',
+sol:'#d35400',
+vol:'#81ecec',
+insecte:'#7bed9f',
+roche:'#a67c52',
+spectre:'#6c5ce7',
+dragon:'#4834d4',
+tenebres:'#2d3436',
+acier:'#95a5a6',
+fée:'#fd79a8',
+normal:'#b2bec3'
 }
 
-loadPokemon();
+async function loadPokemon(){
+
+try{
+
+const value=document.getElementById('search').value.toLowerCase() || 'pikachu'
+
+const res=await fetch(`https://pokeapi.co/api/v2/pokemon/${value}`)
+const data=await res.json()
+
+const speciesRes=await fetch(data.species.url)
+const species=await speciesRes.json()
+
+const fr=species.flavor_text_entries.find(
+entry=>entry.language.name==='fr'
+)
+
+const name=data.name
+
+let comp={
+  tier:'Unknown',
+  roles:['Balanced'],
+  items:['Leftovers'],
+  moves:data.moves.slice(0,4).map(m=>m.move.name)
+}
+
+try{
+
+const showdownRes=await fetch(
+`https://raw.githubusercontent.com/pkmn/smogon/main/data/sets/gen9ou.json`
+)
+
+const showdownData=await showdownRes.json()
+
+const pokeData=showdownData[name]
+
+if(pokeData){
+
+const firstSet=Object.values(pokeData)[0]
+
+comp={
+  tier:'OU',
+  roles:['Competitive','Meta'],
+  items:firstSet.items || ['Leftovers'],
+  moves:firstSet.moves || data.moves.slice(0,4).map(m=>m.move.name)
+}
+
+}
+
+}catch(e){
+console.log('Smogon data unavailable')
+}
+
+const types=data.types.map(t=>`
+<div class="type" style="background:${typeColors[t.type.name] || '#666'}">
+${t.type.name}
+</div>
+`).join('')
+
+const stats=data.stats.map(stat=>`
+<div class="stat">
+<div class="statTop">
+<span>${stat.stat.name}</span>
+<span>${stat.base_stat}</span>
+</div>
+<div class="bar">
+<div class="fill" style="width:${Math.min(stat.base_stat,100)}%"></div>
+</div>
+</div>
+`).join('')
+
+const roles=comp.roles.map(r=>`<div class="badge">${r}</div>`).join('')
+const items=comp.items.map(r=>`<div class="badge">${r}</div>`).join('')
+const moves=comp.moves.map(r=>`<div class="badge">${r}</div>`).join('')
+
+
+const html=`
+
+<div class="name">
+${data.name} #${data.id}
+</div>
+
+<div class="subtitle">
+Pokémon compétitif & stratégique
+</div>
+
+<div class="types">
+${types}
+</div>
+
+<div class="infoGrid">
+
+<div class="infoCard">
+<h3>Taille</h3>
+<p>${data.height/10} m</p>
+</div>
+
+<div class="infoCard">
+<h3>Poids</h3>
+<p>${data.weight/10} kg</p>
+</div>
+
+<div class="infoCard">
+<h3>Talent</h3>
+<p>${data.abilities[0].ability.name}</p>
+</div>
+
+<div class="infoCard">
+<h3>Tier</h3>
+<p class="tier">${comp.tier}</p>
+</div>
+
+</div>
+
+<div class="section">
+<h2>Description</h2>
+<div class="description">
+${fr ? fr.flavor_text : 'Aucune description.'}
+</div>
+</div>
+
+<div class="section">
+<h2>Rôles conseillés</h2>
+<div class="roleList">
+${roles}
+</div>
+</div>
+
+<div class="section">
+<h2>Objets populaires</h2>
+<div class="roleList">
+${items}
+</div>
+</div>
+
+<div class="section">
+<h2>Attaques populaires</h2>
+<div class="moveList">
+${moves}
+</div>
+</div>
+
+<div class="section">
+<h2>Statistiques</h2>
+${stats}
+</div>
+
+`
+
+
+
+
+
+
+
+
+document.getElementById('pokemonImage').src=
+data.sprites.other['official-artwork'].front_default
+
+document.getElementById('content').innerHTML=html
+
+}
+catch(err){
+
+console.log(err)
+
+document.getElementById('content').innerHTML=`
+<div class="loader">
+Pokémon introuvable.
+</div>
+`
+
+}
+
+}
+
+loadPokemon()
 
 </script>
 

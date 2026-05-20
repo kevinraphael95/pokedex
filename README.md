@@ -1,1 +1,1 @@
-https://kevinraphael95.github.io/poketest/index.html
+https://kevinraphael95.github.io/pokedex/index.html

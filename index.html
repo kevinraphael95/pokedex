@@ -1,422 +1,145 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pokédex Pro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{
-  font-family:'Orbitron',monospace;
-  background:linear-gradient(160deg,#0a0a0f 0%,#13131f 100%);
-  min-height:100vh;
-  color:white;
-  padding:16px;
-  overflow-x:hidden;
-}
-.container{max-width:1100px;margin:auto}
-h1{
-  text-align:center;
-  font-size:2.8rem;
-  font-weight:900;
-  color:#e63946;
-  letter-spacing:4px;
-  margin-bottom:20px;
-  text-shadow:0 0 30px rgba(230,57,70,.4);
-}
-.search-row{display:flex;gap:8px;margin-bottom:18px}
-.search-row input{
-  flex:1;background:#1a1a2e;border:1.5px solid #e63946;
-  border-radius:10px;color:white;padding:12px 16px;
-  font-family:'Orbitron',monospace;font-size:13px;outline:none;
-}
-.search-row button{
-  background:#e63946;border:none;border-radius:10px;color:white;
-  padding:12px 18px;cursor:pointer;font-family:'Orbitron',monospace;
-  font-size:11px;font-weight:700;transition:opacity .2s;
-}
-.search-row button:hover{opacity:.85}
-.btn-rand{background:#1a1a2e!important;border:1.5px solid #333!important}
-.main{display:grid;grid-template-columns:280px 1fr;gap:16px}
-@media(max-width:700px){.main{grid-template-columns:1fr}}
-.left-col{display:flex;flex-direction:column;gap:10px}
-.screen{
-  background:radial-gradient(circle at 30% 30%,#1e3a2f,#0a1a13);
-  border-radius:16px;border:2px solid #2a2a3e;
-  height:220px;display:flex;align-items:center;justify-content:center;
-  position:relative;overflow:hidden;
-}
-.screen-scanline{
-  position:absolute;inset:0;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,128,.025) 3px,rgba(0,255,128,.025) 4px);
-  pointer-events:none;border-radius:16px;
-}
-.screen img{
-  max-height:190px;max-width:240px;object-fit:contain;
-  filter:drop-shadow(0 4px 14px rgba(0,255,128,.25));
-  animation:bob 4s ease-in-out infinite;
-}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-.poke-id{font-size:10px;color:#555;text-align:center;letter-spacing:2px;margin-top:-2px}
-.type-badges{display:flex;gap:6px;flex-wrap:wrap}
-.type-badge{padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
-.stat-bar-label{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;color:#aaa}
-.stat-bar-label span:last-child{color:white;font-weight:700}
-.stat-bar{height:6px;background:#1a1a2e;border-radius:999px;overflow:hidden;margin-bottom:8px}
-.stat-fill{height:100%;border-radius:999px;transition:width .8s ease}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.info-tile{background:#1a1a2e;border:0.5px solid #2a2a3e;border-radius:10px;padding:8px 10px}
-.info-tile .lbl{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
-.info-tile .val{font-size:13px;font-weight:700;color:white}
-.section-title{font-size:10px;letter-spacing:2px;color:#e63946;margin-bottom:8px;text-transform:uppercase}
-.desc-box{background:#0f0f1a;border:0.5px solid #2a2a3e;border-radius:10px;padding:12px;font-size:11px;color:#88dd88;line-height:1.7;font-family:monospace}
-.tier-box{background:#1a1a2e;border:0.5px solid #2a2a3e;border-radius:10px;padding:10px;display:flex;align-items:center;gap:12px}
-.tier-letter{font-size:36px;font-weight:900;line-height:1}
-.tier-desc{font-size:10px;color:#888;line-height:1.5}
-.badge-list{display:flex;flex-wrap:wrap;gap:6px}
-.badge{background:#1a1a2e;border:0.5px solid #333;border-radius:8px;padding:5px 9px;font-size:10px;color:#ccc;font-family:monospace}
-.move-badge{background:#12122a;border:0.5px solid #334;border-radius:8px;padding:5px 9px;font-size:10px;color:#88aaff;font-family:monospace}
-.loader-msg{text-align:center;padding:40px;color:#555;font-size:12px}
-.error-msg{text-align:center;padding:40px;color:#e63946;font-size:11px}
-.evo-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.evo-mon{text-align:center;font-size:10px;color:#aaa;cursor:pointer}
-.evo-mon img{width:55px;height:55px;object-fit:contain;filter:brightness(.9);transition:.2s;display:block;margin:0 auto 4px}
-.evo-mon:hover img{filter:brightness(1.3) drop-shadow(0 0 8px rgba(0,255,128,.4))}
-.evo-arrow{color:#555;font-size:16px}
-.ability-row{display:flex;flex-direction:column;gap:5px}
-.ability-item{background:#12122a;border:0.5px solid #2a2a3e;border-radius:8px;padding:8px 10px;font-size:10px}
-.ability-name{color:white;font-weight:700;font-family:monospace}
-.ability-hidden{color:#f4a261;font-size:9px;margin-left:6px}
-.ability-desc{color:#888;margin-top:3px;line-height:1.5;font-family:sans-serif;font-size:10px}
-.matchup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:5px}
-.matchup-tile{border-radius:8px;padding:6px 4px;text-align:center;font-size:9px;font-weight:700}
-.matchup-mult{font-size:12px;font-weight:900;display:block}
-.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
-.tab{
-  background:#1a1a2e;border:0.5px solid #2a2a3e;border-radius:8px;
-  padding:6px 12px;font-size:10px;cursor:pointer;color:#888;
-  font-family:'Orbitron',monospace;transition:.2s;
-}
-.tab.active{background:#e63946;border-color:#e63946;color:white}
-.pane{display:none}
-.pane.active{display:block}
-.gender-row{display:flex;gap:10px;margin-top:2px}
-.gender-m{color:#74b9ff;font-size:11px}
-.gender-f{color:#fd79a8;font-size:11px}
-.set-card{background:#0f0f1a;border:0.5px solid #2a2a3e;border-radius:10px;padding:10px;margin-bottom:8px}
-.set-name{font-size:11px;font-weight:700;color:#74b9ff;margin-bottom:6px}
-.set-detail{font-size:10px;color:#888;font-family:monospace;line-height:1.6}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#7f0000">
+  <title>Pokédex Pro</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-  <h1>POKÉDEX</h1>
-  <div class="search-row">
-    <input id="q" placeholder="Nom ou numéro (fr/en)…" value="pikachu" onkeydown="if(event.key==='Enter')go()">
-    <button onclick="go()">CHERCHER</button>
-    <button class="btn-rand" onclick="rand()">?</button>
-  </div>
-  <div class="main">
-    <div class="left-col">
-      <div class="screen">
-        <div class="screen-scanline"></div>
-        <img id="sprite" src="" alt="">
-      </div>
-      <div id="poke-id" class="poke-id"></div>
-      <div id="type-badges" class="type-badges"></div>
-      <div id="stats-section"></div>
-    </div>
-    <div id="right" class="loader-msg">Chargement…</div>
-  </div>
-</div>
 
-<script>
-const TYPE_FR={normal:'Normal',fire:'Feu',water:'Eau',grass:'Plante',electric:'Électrik',ice:'Glace',fighting:'Combat',poison:'Poison',ground:'Sol',flying:'Vol',psychic:'Psy',bug:'Insecte',rock:'Roche',ghost:'Spectre',dragon:'Dragon',dark:'Ténèbres',steel:'Acier',fairy:'Fée'};
-const TYPE_COLOR={fire:'#e25822',water:'#2980b9',grass:'#27ae60',electric:'#f39c12',ice:'#74b9ff',fighting:'#c0392b',poison:'#8e44ad',ground:'#d35400',flying:'#81ecec',psychic:'#e91e96',bug:'#558b2f',rock:'#795548',ghost:'#4527a0',dragon:'#1565c0',dark:'#263238',steel:'#607d8b',fairy:'#e91e8c',normal:'#78909c'};
-const STAT_LABEL={hp:'HP',attack:'ATK',defense:'DEF','special-attack':'SpA','special-defense':'SpD',speed:'VIT'};
-const STAT_MAX=255;
-const tierColor={OU:'#e63946',UU:'#f4a261',RU:'#48cae4',NU:'#74b9ff',PU:'#a29bfe',Uber:'#ff6b6b',AG:'#ff6b6b',LC:'#55efc4',Unknown:'#555'};
+  <!-- Global overlays -->
+  <div class="scanline" aria-hidden="true"></div>
 
-const FR_NAME_MAP={};
-let frMapBuilding=false;
-let frMapReady=false;
+  <!-- ── Pokédex Shell ──────────────────────────────────── -->
+  <div class="pokedex" role="main" aria-label="Pokédex">
+    <div class="dex-inner">
 
-async function buildFrMap(){
-  if(frMapBuilding||frMapReady)return;
-  frMapBuilding=true;
-  try{
-    const r=await fetch('https://pokeapi.co/api/v2/pokemon-species?limit=1025');
-    const d=await r.json();
-    const chunks=[];
-    for(let i=0;i<d.results.length;i+=50)chunks.push(d.results.slice(i,i+50));
-    for(const chunk of chunks){
-      await Promise.all(chunk.map(async s=>{
-        try{
-          const sr=await fetch(s.url);
-          const sd=await sr.json();
-          const fr=sd.names.find(n=>n.language.name==='fr');
-          if(fr)FR_NAME_MAP[fr.name.toLowerCase()]=s.name;
-        }catch(e){}
-      }));
-    }
-    frMapReady=true;
-  }catch(e){}
-}
+      <!-- ══ LEFT COLUMN ══════════════════════════════════ -->
+      <div class="dex-left">
 
-function resolveName(input){
-  const low=input.trim().toLowerCase();
-  return FR_NAME_MAP[low]||low;
-}
-
-async function smogonTier(name){
-  const gens=['gen9ou','gen9uu','gen9ru','gen9nu','gen9pu','gen9uber','gen9lc'];
-  const tierName={gen9ou:'OU',gen9uu:'UU',gen9ru:'RU',gen9nu:'NU',gen9pu:'PU',gen9uber:'Uber',gen9lc:'LC'};
-  for(const g of gens){
-    try{
-      const r=await fetch(`https://raw.githubusercontent.com/pkmn/smogon/main/data/sets/${g}.json`);
-      if(!r.ok)continue;
-      const d=await r.json();
-      const key=Object.keys(d).find(k=>k.toLowerCase()===name.toLowerCase());
-      if(key){
-        const sets=Object.entries(d[key]);
-        const allMoves=[],allItems=[],allAbilities=[],allNatures=[];
-        sets.forEach(([,s])=>{
-          if(s.moves)allMoves.push(...s.moves.flat());
-          if(s.items)allItems.push(...s.items);
-          if(s.abilities)allAbilities.push(...s.abilities);
-          if(s.natures)allNatures.push(...s.natures);
-        });
-        const uniq=a=>[...new Set(a)];
-        return{tier:tierName[g],moves:uniq(allMoves).slice(0,8),items:uniq(allItems).slice(0,6),abilities:uniq(allAbilities).slice(0,4),natures:uniq(allNatures).slice(0,4),sets:sets.map(([n,s])=>({name:n,s})).slice(0,3)};
-      }
-    }catch(e){}
-  }
-  return{tier:'Unknown',moves:[],items:[],abilities:[],natures:[],sets:[]};
-}
-
-async function getAbilityDesc(url){
-  try{
-    const r=await fetch(url);
-    const d=await r.json();
-    const fr=d.flavor_text_entries.find(e=>e.language.name==='fr')||d.flavor_text_entries.find(e=>e.language.name==='en');
-    return fr?fr.flavor_text.replace(/\n/g,' '):'';
-  }catch(e){return'';}
-}
-
-async function getEvolution(speciesData){
-  try{
-    const r=await fetch(speciesData.evolution_chain.url);
-    const d=await r.json();
-    const chain=[];
-    let node=d.chain;
-    while(node){chain.push(node.species.name);node=node.evolves_to[0]||null;}
-    return chain;
-  }catch(e){return[];}
-}
-
-async function getSpriteForMon(name){
-  try{
-    const r=await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
-    const d=await r.json();
-    return d.sprites.other['official-artwork'].front_default||d.sprites.front_default;
-  }catch(e){return'';}
-}
-
-function typeMatchups(types){
-  const chart={normal:{rock:.5,ghost:0,steel:.5},fire:{fire:.5,water:.5,grass:2,ice:2,bug:2,rock:.5,dragon:.5,steel:2},water:{fire:2,water:.5,grass:.5,dragon:.5},grass:{fire:.5,water:2,grass:.5,poison:.5,ground:2,flying:.5,bug:.5,rock:2,dragon:.5,steel:.5},electric:{water:2,electric:.5,grass:.5,ground:0,flying:2,dragon:.5},ice:{fire:.5,water:.5,grass:2,ice:.5,ground:2,flying:2,dragon:2,steel:.5},fighting:{normal:2,ice:2,poison:.5,flying:.5,psychic:.5,bug:.5,rock:2,ghost:0,dark:2,steel:2,fairy:.5},poison:{grass:2,poison:.5,ground:.5,rock:.5,ghost:.5,steel:0,fairy:2},ground:{fire:2,electric:2,grass:.5,poison:2,flying:0,bug:.5,rock:2,steel:2},flying:{electric:.5,grass:2,fighting:2,bug:2,rock:.5,steel:.5},psychic:{fighting:2,poison:2,psychic:.5,dark:0,steel:.5},bug:{fire:.5,grass:2,fighting:.5,poison:.5,flying:.5,psychic:2,ghost:.5,dark:2,steel:.5,fairy:.5},rock:{fire:2,ice:2,fighting:.5,ground:.5,flying:2,bug:2,steel:.5},ghost:{normal:0,psychic:2,ghost:2,dark:.5},dragon:{dragon:2,steel:.5,fairy:0},dark:{fighting:.5,psychic:2,ghost:2,dark:.5,fairy:.5},steel:{fire:.5,water:.5,electric:.5,ice:2,rock:2,steel:.5,fairy:2},fairy:{fire:.5,fighting:2,poison:.5,dragon:2,dark:2,steel:.5}};
-  const result={};
-  types.forEach(t=>{const atk=chart[t]||{};Object.entries(atk).forEach(([def,mult])=>{result[def]=(result[def]||1)*mult;});});
-  return result;
-}
-
-function multColor(m){
-  if(m===0)return{bg:'#1a1a2e',text:'#555'};
-  if(m===0.25)return{bg:'#0a2e0a',text:'#00cc55'};
-  if(m===0.5)return{bg:'#1a2e1a',text:'#27ae60'};
-  if(m===2)return{bg:'#2e1a1a',text:'#e67e22'};
-  if(m===4)return{bg:'#3a0a0a',text:'#e63946'};
-  return{bg:'#1a1a2e',text:'#777'};
-}
-
-let activeTab='info';
-
-function setTab(t){
-  activeTab=t;
-  document.querySelectorAll('.tab').forEach(el=>{el.classList.toggle('active',el.dataset.tab===t)});
-  document.querySelectorAll('.pane').forEach(el=>{el.classList.toggle('active',el.id==='pane-'+t)});
-}
-
-async function go(){
-  const val=document.getElementById('q').value.trim()||'pikachu';
-  await loadPoke(val);
-}
-
-async function rand(){
-  const id=Math.floor(Math.random()*1010)+1;
-  document.getElementById('q').value=String(id);
-  await loadPoke(String(id));
-}
-
-async function loadPoke(input){
-  document.getElementById('right').innerHTML='<div class="loader-msg">Chargement…</div>';
-  document.getElementById('sprite').src='';
-  document.getElementById('type-badges').innerHTML='';
-  document.getElementById('poke-id').textContent='';
-  document.getElementById('stats-section').innerHTML='';
-
-  try{
-    let searchName=input.toLowerCase().trim();
-    if(!/^\d+$/.test(searchName)){
-      if(frMapReady){
-        searchName=resolveName(searchName);
-      }else{
-        buildFrMap();
-      }
-    }
-
-    const res=await fetch(`https://pokeapi.co/api/v2/pokemon/${searchName}`);
-    if(!res.ok)throw new Error('not found');
-    const data=await res.json();
-
-    const specRes=await fetch(data.species.url);
-    const species=await specRes.json();
-
-    const frName=species.names.find(n=>n.language.name==='fr')?.name||data.name;
-    const frDesc=species.flavor_text_entries.find(e=>e.language.name==='fr')?.flavor_text?.replace(/\n|\f/g,' ')||'';
-    const category=species.genera.find(g=>g.language.name==='fr')?.genus||'';
-    const genderRate=species.gender_rate;
-    const captureRate=species.capture_rate;
-    const baseHappiness=species.base_happiness;
-    const growthRate=species.growth_rate?.name||'';
-    const isBaby=species.is_baby;
-    const isLegendary=species.is_legendary;
-    const isMythical=species.is_mythical;
-
-    const types=data.types.map(t=>t.type.name);
-
-    document.getElementById('sprite').src=data.sprites.other['official-artwork'].front_default||data.sprites.front_default;
-    document.getElementById('poke-id').textContent=`#${String(data.id).padStart(4,'0')} — ${frName.toUpperCase()}`;
-    document.getElementById('type-badges').innerHTML=types.map(t=>`<span class="type-badge" style="background:${TYPE_COLOR[t]||'#555'}">${TYPE_FR[t]||t}</span>`).join('');
-
-    const stats=data.stats;
-    const total=stats.reduce((a,s)=>a+s.base_stat,0);
-    document.getElementById('stats-section').innerHTML=`
-      <div class="section-title" style="margin-top:6px">Statistiques — total ${total}</div>
-      ${stats.map(s=>{
-        const pct=Math.round(s.base_stat/STAT_MAX*100);
-        const col=s.base_stat>=100?'#00ff99':s.base_stat>=70?'#f4a261':'#e63946';
-        return`<div class="stat-bar-label"><span>${STAT_LABEL[s.stat.name]||s.stat.name}</span><span>${s.base_stat}</span></div>
-        <div class="stat-bar"><div class="stat-fill" style="width:${pct}%;background:${col}"></div></div>`;
-      }).join('')}
-    `;
-
-    const [evoChain, smogon, abilityDetails]=await Promise.all([
-      getEvolution(species),
-      smogonTier(data.name),
-      Promise.all(data.abilities.map(async a=>({name:a.ability.name,hidden:a.is_hidden,desc:await getAbilityDesc(a.ability.url)})))
-    ]);
-
-    const matchups=typeMatchups(types);
-    const weakEntries=Object.entries(matchups).filter(([,m])=>m>1).sort((a,b)=>b[1]-a[1]);
-    const resistEntries=Object.entries(matchups).filter(([,m])=>m>0&&m<1).sort((a,b)=>a[1]-b[1]);
-    const immuneEntries=Object.entries(matchups).filter(([,m])=>m===0);
-
-    let genderHtml='Asexué';
-    if(genderRate>=0&&genderRate<=8){
-      const femPct=Math.round(genderRate/8*100);
-      genderHtml=`<span class="gender-m">♂ ${100-femPct}%</span><span class="gender-f">♀ ${femPct}%</span>`;
-    }
-
-    let evoHtml='<span style="color:#555;font-size:10px">Pas d\'évolution</span>';
-    if(evoChain.length>1){
-      const sprites=await Promise.all(evoChain.map(getSpriteForMon));
-      evoHtml=`<div class="evo-row">${evoChain.map((name,i)=>`
-        ${i>0?'<span class="evo-arrow">→</span>':''}
-        <div class="evo-mon" onclick="document.getElementById('q').value='${name}';loadPoke('${name}')">
-          <img src="${sprites[i]||''}" alt="${name}">
-          <div>${name}</div>
-        </div>`).join('')}</div>`;
-    }
-
-    const specialTag=isLegendary?'<span style="color:#f4a261;font-size:10px;margin-left:8px">★ Légendaire</span>':isMythical?'<span style="color:#e91e96;font-size:10px;margin-left:8px">★ Fabuleux</span>':isBaby?'<span style="color:#74b9ff;font-size:10px;margin-left:8px">Bébé</span>':'';
-
-    const tabs=[{id:'info',label:'INFOS'},{id:'combat',label:'COMBAT'},{id:'strat',label:'STRAT'},{id:'evo',label:'ÉVO'}];
-
-    document.getElementById('right').innerHTML=`
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
-        <div style="font-size:20px;font-weight:900">${frName.toUpperCase()}</div>${specialTag}
-      </div>
-      <div style="color:#555;font-size:10px;margin-bottom:12px;font-family:monospace">${category}</div>
-      <div class="tabs">${tabs.map(t=>`<div class="tab${t.id===activeTab?' active':''}" data-tab="${t.id}" onclick="setTab('${t.id}')">${t.label}</div>`).join('')}</div>
-
-      <div id="pane-info" class="pane${activeTab==='info'?' active':''}">
-        <div class="info-grid" style="margin-bottom:10px">
-          <div class="info-tile"><div class="lbl">Taille</div><div class="val">${(data.height/10).toFixed(1)} m</div></div>
-          <div class="info-tile"><div class="lbl">Poids</div><div class="val">${(data.weight/10).toFixed(1)} kg</div></div>
-          <div class="info-tile"><div class="lbl">Capture</div><div class="val">${captureRate}</div></div>
-          <div class="info-tile"><div class="lbl">Bonheur</div><div class="val">${baseHappiness??'—'}</div></div>
-          <div class="info-tile"><div class="lbl">Croissance</div><div class="val" style="font-size:10px">${growthRate}</div></div>
-          <div class="info-tile"><div class="lbl">Genre</div><div class="val"><div class="gender-row">${genderHtml}</div></div></div>
-        </div>
-        <div class="section-title">Description</div>
-        <div class="desc-box" style="margin-bottom:10px">${frDesc}</div>
-        <div class="section-title">Talents</div>
-        <div class="ability-row">
-          ${abilityDetails.map(a=>`<div class="ability-item">
-            <span class="ability-name">${a.name}</span>${a.hidden?'<span class="ability-hidden">Talent caché</span>':''}
-            ${a.desc?`<div class="ability-desc">${a.desc}</div>`:''}
-          </div>`).join('')}
-        </div>
-      </div>
-
-      <div id="pane-combat" class="pane${activeTab==='combat'?' active':''}">
-        ${weakEntries.length?`<div class="section-title">Faiblesses</div>
-        <div class="matchup-grid" style="margin-bottom:10px">${weakEntries.map(([t,m])=>{const c=multColor(m);return`<div class="matchup-tile" style="background:${c.bg}"><span class="matchup-mult" style="color:${c.text}">×${m}</span><span style="color:#aaa;font-size:9px">${TYPE_FR[t]||t}</span></div>`;}).join('')}</div>`:''}
-        ${resistEntries.length?`<div class="section-title">Résistances</div>
-        <div class="matchup-grid" style="margin-bottom:10px">${resistEntries.map(([t,m])=>{const c=multColor(m);return`<div class="matchup-tile" style="background:${c.bg}"><span class="matchup-mult" style="color:${c.text}">×${m}</span><span style="color:#aaa;font-size:9px">${TYPE_FR[t]||t}</span></div>`;}).join('')}</div>`:''}
-        ${immuneEntries.length?`<div class="section-title">Immunités</div>
-        <div class="matchup-grid">${immuneEntries.map(([t])=>`<div class="matchup-tile" style="background:#0f0f1a"><span class="matchup-mult" style="color:#555">×0</span><span style="color:#555;font-size:9px">${TYPE_FR[t]||t}</span></div>`).join('')}</div>`:''}
-      </div>
-
-      <div id="pane-strat" class="pane${activeTab==='strat'?' active':''}">
-        <div class="tier-box" style="margin-bottom:10px">
-          <div class="tier-letter" style="color:${tierColor[smogon.tier]||'#555'}">${smogon.tier}</div>
-          <div>
-            <div style="font-size:11px;font-weight:700;color:white">Tier Smogon</div>
-            <div class="tier-desc">Format compétitif Gen 9</div>
+        <!-- Lens + indicator dots -->
+        <div class="lens-group" aria-hidden="true">
+          <div class="lens">
+            <div class="lens__inner"></div>
+            <div class="lens__glare"></div>
+          </div>
+          <div class="dots">
+            <div class="dot dot--r" title="Power"></div>
+            <div class="dot dot--y" title="Alert"></div>
+            <div class="dot dot--g" title="Ready"></div>
           </div>
         </div>
-        ${smogon.sets.length?`<div class="section-title">Sets recommandés</div>
-        ${smogon.sets.map(({name,s})=>`<div class="set-card">
-          <div class="set-name">${name}</div>
-          <div class="set-detail">
-            ${s.items?`Objet : <span style="color:#f4a261">${s.items.join(' / ')}</span><br>`:''}
-            ${s.abilities?`Talent : <span style="color:#a29bfe">${s.abilities.join(' / ')}</span><br>`:''}
-            ${s.natures?`Nature : <span style="color:#74b9ff">${s.natures.join(' / ')}</span><br>`:''}
+
+        <!-- Main screen -->
+        <div class="screen-wrap" id="screen-wrap">
+          <div class="screen__scanlines" aria-hidden="true"></div>
+          <div class="screen__grid"      aria-hidden="true"></div>
+          <div class="screen__corner tl" aria-hidden="true"></div>
+          <div class="screen__corner tr" aria-hidden="true"></div>
+          <div class="screen__corner bl" aria-hidden="true"></div>
+          <div class="screen__corner br" aria-hidden="true"></div>
+          <span class="screen__label"   aria-hidden="true">GAME FREAK</span>
+          <img id="sprite" src="" alt="Sprite du Pokémon" style="opacity:0">
+        </div>
+
+        <!-- #ID line -->
+        <p id="poke-id" class="poke-id" aria-live="polite"></p>
+
+        <!-- Type badges -->
+        <div id="type-row" class="type-row" role="list" aria-label="Types"></div>
+
+        <!-- Stat bars -->
+        <div id="stats-section" class="stats-section" aria-label="Statistiques de base"></div>
+
+        <!-- Decorative speaker -->
+        <div class="speaker" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+
+      </div><!-- /dex-left -->
+
+
+      <!-- ══ RIGHT COLUMN ═════════════════════════════════ -->
+      <div class="dex-right">
+
+        <!-- Mini readout screen -->
+        <div class="mini-screen" role="status" aria-live="polite">
+          <div class="ms-status" id="ms-status">POKÉDEX</div>
+          <div class="ms-name"   id="ms-name">— — —</div>
+          <div class="ms-cat"    id="ms-cat"></div>
+          <div class="xp-bar" aria-hidden="true">
+            <div class="xp-fill" id="xp-fill"></div>
           </div>
-          ${s.moves?`<div class="badge-list" style="margin-top:6px">${s.moves.flat().slice(0,8).map(m=>`<span class="move-badge">${m}</span>`).join('')}</div>`:''}
-        </div>`).join('')}`:`<div class="desc-box">Aucune donnée Smogon.<br>Ce Pokémon n'est pas en méta compétitive standard.</div>`}
-        ${smogon.items.length?`<div class="section-title" style="margin-top:8px">Objets populaires</div><div class="badge-list" style="margin-bottom:8px">${smogon.items.map(i=>`<span class="badge">${i}</span>`).join('')}</div>`:''}
-        ${smogon.natures.length?`<div class="section-title">Natures</div><div class="badge-list">${smogon.natures.map(n=>`<span class="badge">${n}</span>`).join('')}</div>`:''}
-      </div>
+        </div>
 
-      <div id="pane-evo" class="pane${activeTab==='evo'?' active':''}">
-        <div class="section-title">Chaîne d'évolution</div>
-        ${evoHtml}
-      </div>
-    `;
+        <!-- Search row -->
+        <div class="search-row" role="search">
+          <label for="q" class="visually-hidden">Rechercher un Pokémon</label>
+          <input
+            id="q"
+            type="search"
+            placeholder="Nom (fr/en) ou #ID…"
+            value="garchomp"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Nom ou numéro du Pokémon"
+          >
+          <button
+            class="btn btn--go"
+            onclick="window.__dex.go()"
+            aria-label="Rechercher"
+          >
+            <span class="btn__face">OK</span>
+          </button>
+          <button
+            class="btn btn--rand"
+            onclick="window.__dex.rand()"
+            aria-label="Pokémon aléatoire"
+            title="Aléatoire"
+          >
+            <span class="btn__face">?</span>
+          </button>
+        </div>
 
-  }catch(err){
-    console.error(err);
-    document.getElementById('right').innerHTML='<div class="error-msg">Pokémon introuvable.<br>Essaie le nom anglais ou le numéro.</div>';
-  }
-}
+        <!-- Tab bar -->
+        <div class="tabs" role="tablist" aria-label="Sections">
+          <button class="tab active" role="tab" aria-selected="true"  data-tab="info"   onclick="window.__dex.setTab('info')">INFOS</button>
+          <button class="tab"        role="tab" aria-selected="false" data-tab="combat" onclick="window.__dex.setTab('combat')">COMBAT</button>
+          <button class="tab"        role="tab" aria-selected="false" data-tab="strat"  onclick="window.__dex.setTab('strat')">STRAT</button>
+          <button class="tab"        role="tab" aria-selected="false" data-tab="evo"    onclick="window.__dex.setTab('evo')">ÉVO</button>
+        </div>
 
-loadPoke('pikachu');
-buildFrMap();
-</script>
+        <!-- Panes -->
+        <div id="pane-info"   class="pane active" role="tabpanel" aria-label="Informations">
+          <div class="state-msg state-msg--loading">CHARGEMENT…</div>
+        </div>
+        <div id="pane-combat" class="pane" role="tabpanel" aria-label="Combat"></div>
+        <div id="pane-strat"  class="pane" role="tabpanel" aria-label="Stratégie"></div>
+        <div id="pane-evo"    class="pane" role="tabpanel" aria-label="Évolutions"></div>
+
+        <!-- D-pad + circle buttons (decorative) -->
+        <div class="dpad-area" aria-hidden="true">
+          <div class="dpad">
+            <div class="dpad__h"></div>
+            <div class="dpad__v"></div>
+            <div class="dpad__c"></div>
+          </div>
+          <div class="circle-btns">
+            <button class="circle-btn circle-btn--a" tabindex="-1">A</button>
+            <button class="circle-btn circle-btn--b" tabindex="-1">B</button>
+          </div>
+        </div>
+
+      </div><!-- /dex-right -->
+
+    </div><!-- /dex-inner -->
+  </div><!-- /pokedex -->
+
+  <!-- Accessibility helper -->
+  <style>.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
+
+  <script src="pokédex.js"></script>
 </body>
 </html>

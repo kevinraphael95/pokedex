@@ -1,7 +1,8 @@
 /**
- * pokédex.js — Pokédex Pro
+ * pokédex.js — Pokédex Pro v4
  * Architecture : data → fetch → render pipeline
  * Zero dependencies, vanilla ES2020+
+ * Optimisé : cache mémoire, requêtes annulables, fetch parallèle Smogon
  */
 
 'use strict';
@@ -89,18 +90,30 @@ const SMOGON_TIERS = [
   { id: 'gen9lc',   name: 'LC'   },
 ];
 
-const POKE_API  = 'https://pokeapi.co/api/v2';
+const POKE_API   = 'https://pokeapi.co/api/v2';
 const SMOGON_RAW = 'https://raw.githubusercontent.com/pkmn/smogon/main/data/sets';
 
 
 /* ─────────────────────────────────────────────────────────────
-   STATE
+   STATE & CACHES
+   Tout est mémoïsé pour éviter les requêtes réseau redondantes
+   (changement d'onglet, retour sur une évolution déjà visitée…)
 ───────────────────────────────────────────────────────────── */
 
 const state = {
   activeTab : 'info',
   frMap     : {},
   frMapReady: false,
+  requestId : 0,           // jeton anti-concurrence : ignore les réponses obsolètes
+};
+
+const cache = {
+  pokemon : new Map(),     // slug -> { pokeData, specData }
+  smogon  : new Map(),     // tierId -> raw json (partagé entre tous les Pokémon)
+  smogonReady: null,       // Promise unique : un seul fetch de l'ensemble des tiers
+  ability : new Map(),     // url -> description
+  evo     : new Map(),     // species url -> chain[]
+  sprite  : new Map(),     // slug -> url
 };
 
 
@@ -108,7 +121,6 @@ const state = {
    UTILITIES
 ───────────────────────────────────────────────────────────── */
 
-/** Unique values from array */
 const uniq = (arr) => [...new Set(arr)];
 
 /** html-escape for safety when injecting user-facing strings */
@@ -149,108 +161,130 @@ function multColors(m) {
   return { bg: 'rgba(0,0,0,0.3)', text: '#777' };
 }
 
+/** Fetch JSON with timeout + abort support, throws on non-2xx */
+async function fetchJSON(url, signal) {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${url}`);
+  return res.json();
+}
+
 
 /* ─────────────────────────────────────────────────────────────
    API FETCHERS
 ───────────────────────────────────────────────────────────── */
 
-/** Build French name → English slug map (runs in background) */
+/** Build French name → English slug map (runs once in background) */
 async function buildFrMap() {
   if (state.frMapReady) return;
   try {
-    const res  = await fetch(`${POKE_API}/pokemon-species?limit=1025`);
-    const data = await res.json();
+    const data = await fetchJSON(`${POKE_API}/pokemon-species?limit=1025`);
     const chunks = [];
-    for (let i = 0; i < data.results.length; i += 50) {
-      chunks.push(data.results.slice(i, i + 50));
+    for (let i = 0; i < data.results.length; i += 75) {
+      chunks.push(data.results.slice(i, i + 75));
     }
     for (const chunk of chunks) {
-      await Promise.all(chunk.map(async (s) => {
-        try {
-          const sr = await fetch(s.url);
-          const sd = await sr.json();
-          const fr = sd.names.find((n) => n.language.name === 'fr');
-          if (fr) state.frMap[fr.name.toLowerCase()] = s.name;
-        } catch (_) {}
+      await Promise.allSettled(chunk.map(async (s) => {
+        const sd = await fetchJSON(s.url);
+        const fr = sd.names.find((n) => n.language.name === 'fr');
+        if (fr) state.frMap[fr.name.toLowerCase()] = s.name;
       }));
     }
     state.frMapReady = true;
-  } catch (_) {}
+  } catch (_) { /* dégradation gracieuse : recherche EN/ID reste utilisable */ }
 }
 
-/** Fetch Pokémon data + species data in parallel */
-async function fetchPokemon(slug) {
-  const [pokeRes, ] = await Promise.all([
-    fetch(`${POKE_API}/pokemon/${slug}`),
-  ]);
-  if (!pokeRes.ok) throw new Error(`Not found: ${slug}`);
-  const pokeData = await pokeRes.json();
-  const specRes  = await fetch(pokeData.species.url);
-  const specData = await specRes.json();
-  return { pokeData, specData };
+/** Fetch Pokémon + species data, with cache & abort support */
+async function fetchPokemon(slug, signal) {
+  if (cache.pokemon.has(slug)) return cache.pokemon.get(slug);
+  const pokeData = await fetchJSON(`${POKE_API}/pokemon/${slug}`, signal);
+  const specData = await fetchJSON(pokeData.species.url, signal);
+  const result = { pokeData, specData };
+  cache.pokemon.set(slug, result);
+  cache.pokemon.set(String(pokeData.id), result);
+  cache.pokemon.set(pokeData.name, result);
+  return result;
 }
 
-/** Fetch Smogon sets — tries each tier in order until a match is found */
+/** Load + cache every Smogon tier JSON exactly once, in parallel */
+function loadAllSmogonTiers() {
+  if (!cache.smogonReady) {
+    cache.smogonReady = Promise.allSettled(
+      SMOGON_TIERS.map(async ({ id }) => {
+        const res = await fetch(`${SMOGON_RAW}/${id}.json`);
+        if (!res.ok) throw new Error(id);
+        cache.smogon.set(id, await res.json());
+      })
+    );
+  }
+  return cache.smogonReady;
+}
+
+/** Resolve Smogon set data for a given Pokémon name (first matching tier wins) */
 async function fetchSmogon(name) {
+  await loadAllSmogonTiers();
   for (const { id, name: tierName } of SMOGON_TIERS) {
-    try {
-      const res = await fetch(`${SMOGON_RAW}/${id}.json`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      const key  = Object.keys(data).find((k) => k.toLowerCase() === name.toLowerCase());
-      if (!key) continue;
+    const data = cache.smogon.get(id);
+    if (!data) continue;
+    const key = Object.keys(data).find((k) => k.toLowerCase() === name.toLowerCase());
+    if (!key) continue;
 
-      const sets = Object.entries(data[key]);
-      const allMoves = [], allItems = [], allAbils = [], allNats = [];
-      for (const [, s] of sets) {
-        if (s.moves)     allMoves.push(...s.moves.flat());
-        if (s.items)     allItems.push(...s.items);
-        if (s.abilities) allAbils.push(...s.abilities);
-        if (s.natures)   allNats.push(...s.natures);
-      }
+    const sets = Object.entries(data[key]);
+    const allMoves = [], allItems = [], allAbils = [], allNats = [];
+    for (const [, s] of sets) {
+      if (s.moves)     allMoves.push(...s.moves.flat());
+      if (s.items)     allItems.push(...s.items);
+      if (s.abilities) allAbils.push(...s.abilities);
+      if (s.natures)   allNats.push(...s.natures);
+    }
 
-      return {
-        tier    : tierName,
-        sets    : sets.map(([n, s]) => ({ name: n, s })).slice(0, 4),
-        moves   : uniq(allMoves).slice(0, 10),
-        items   : uniq(allItems).slice(0, 6),
-        abilities: uniq(allAbils).slice(0, 4),
-        natures : uniq(allNats).slice(0, 4),
-      };
-    } catch (_) {}
+    return {
+      tier      : tierName,
+      sets      : sets.map(([n, s]) => ({ name: n, s })).slice(0, 4),
+      moves     : uniq(allMoves).slice(0, 10),
+      items     : uniq(allItems).slice(0, 6),
+      abilities : uniq(allAbils).slice(0, 4),
+      natures   : uniq(allNats).slice(0, 4),
+    };
   }
   return { tier: 'Unknown', sets: [], moves: [], items: [], abilities: [], natures: [] };
 }
 
-/** Fetch ability description (FR preferred, EN fallback) */
+/** Fetch ability description (FR preferred, EN fallback), cached by URL */
 async function fetchAbilDesc(url) {
+  if (cache.ability.has(url)) return cache.ability.get(url);
   try {
-    const res  = await fetch(url);
-    const data = await res.json();
+    const data = await fetchJSON(url);
     const entry = data.flavor_text_entries.find((e) => e.language.name === 'fr')
                 ?? data.flavor_text_entries.find((e) => e.language.name === 'en');
-    return entry ? entry.flavor_text.replace(/[\n\f]/g, ' ') : '';
+    const desc = entry ? entry.flavor_text.replace(/[\n\f]/g, ' ') : '';
+    cache.ability.set(url, desc);
+    return desc;
   } catch (_) { return ''; }
 }
 
-/** Fetch evolution chain as ordered array of slugs */
+/** Fetch evolution chain as ordered array of slugs, cached by chain URL */
 async function fetchEvolution(specData) {
+  const url = specData.evolution_chain.url;
+  if (cache.evo.has(url)) return cache.evo.get(url);
   try {
-    const res  = await fetch(specData.evolution_chain.url);
-    const data = await res.json();
+    const data = await fetchJSON(url);
     const chain = [];
     let node = data.chain;
     while (node) { chain.push(node.species.name); node = node.evolves_to[0] ?? null; }
+    cache.evo.set(url, chain);
     return chain;
   } catch (_) { return []; }
 }
 
-/** Fetch official artwork URL for a given Pokémon slug */
+/** Fetch official artwork URL for a given Pokémon slug, cached by slug */
 async function fetchSprite(slug) {
+  if (cache.sprite.has(slug)) return cache.sprite.get(slug);
   try {
-    const res  = await fetch(`${POKE_API}/pokemon/${slug}`);
-    const data = await res.json();
-    return data.sprites?.other?.['official-artwork']?.front_default ?? data.sprites?.front_default ?? '';
+    const { pokeData } = await fetchPokemon(slug);
+    const url = pokeData.sprites?.other?.['official-artwork']?.front_default
+             ?? pokeData.sprites?.front_default ?? '';
+    cache.sprite.set(slug, url);
+    return url;
   } catch (_) { return ''; }
 }
 
@@ -294,10 +328,10 @@ function renderCoverageTile(type) {
 }
 
 function renderSetCard({ name, s }) {
-  const itemsHtml  = s.items    ? `<span style="color:rgba(255,255,255,.35)">Objet :</span> <span style="color:#f4a261">${esc(s.items.join(' / '))}</span><br>` : '';
-  const abilsHtml  = s.abilities ? `<span style="color:rgba(255,255,255,.35)">Talent :</span> <span style="color:#ce93d8">${esc(s.abilities.join(' / '))}</span><br>` : '';
-  const natsHtml   = s.natures  ? `<span style="color:rgba(255,255,255,.35)">Nature :</span> <span style="color:#ffd54f">${esc(s.natures.join(' / '))}</span>` : '';
-  const movesHtml  = s.moves
+  const itemsHtml = s.items     ? `<span style="color:rgba(255,255,255,.35)">Objet :</span> <span style="color:#f4a261">${esc(s.items.join(' / '))}</span><br>` : '';
+  const abilsHtml = s.abilities ? `<span style="color:rgba(255,255,255,.35)">Talent :</span> <span style="color:#ce93d8">${esc(s.abilities.join(' / '))}</span><br>` : '';
+  const natsHtml  = s.natures   ? `<span style="color:rgba(255,255,255,.35)">Nature :</span> <span style="color:#ffd54f">${esc(s.natures.join(' / '))}</span>` : '';
+  const movesHtml = s.moves
     ? `<div class="badge-list">${s.moves.flat().slice(0, 8).map((m) => `<span class="badge badge--move">${esc(m)}</span>`).join('')}</div>`
     : '';
   return /* html */`
@@ -309,20 +343,24 @@ function renderSetCard({ name, s }) {
   `;
 }
 
+/** Skeleton shimmer block, used while a pane's data is still loading */
+function skeleton(lines = 3) {
+  return `<div class="skeleton-block">${'<div class="skeleton-line"></div>'.repeat(lines)}</div>`;
+}
+
 
 /* ─────────────────────────────────────────────────────────────
    PANE RENDERERS
 ───────────────────────────────────────────────────────────── */
 
-function renderPaneInfo({ pokeData, specData, abilDetails, frName, frDesc }) {
-  const cat          = specData.genera?.find((g) => g.language.name === 'fr')?.genus ?? '';
-  const genderRate   = specData.gender_rate;
-  const captureRate  = specData.capture_rate;
-  const happiness    = specData.base_happiness;
-  const growthRate   = specData.growth_rate?.name ?? '—';
-  const isLegendary  = specData.is_legendary;
-  const isMythical   = specData.is_mythical;
-  const isBaby       = specData.is_baby;
+function renderPaneInfo({ pokeData, specData, abilDetails, frDesc }) {
+  const genderRate  = specData.gender_rate;
+  const captureRate = specData.capture_rate;
+  const happiness   = specData.base_happiness;
+  const growthRate  = specData.growth_rate?.name ?? '—';
+  const isLegendary = specData.is_legendary;
+  const isMythical  = specData.is_mythical;
+  const isBaby      = specData.is_baby;
 
   let genderHtml = `<span style="color:rgba(255,255,255,.5)">Asexué</span>`;
   if (genderRate >= 0 && genderRate <= 8) {
@@ -342,7 +380,7 @@ function renderPaneInfo({ pokeData, specData, abilDetails, frName, frDesc }) {
     <div class="ability-item">
       <span class="ability-name">${esc(name)}</span>
       ${hidden ? '<span class="ability-hidden">CACHÉ</span>' : ''}
-      ${desc ? `<div class="ability-desc">${esc(desc)}</div>` : ''}
+      ${desc ? `<div class="ability-desc">${esc(desc)}</div>` : '<div class="ability-desc ability-desc--empty">Pas de description disponible.</div>'}
     </div>
   `).join('');
 
@@ -363,11 +401,11 @@ function renderPaneInfo({ pokeData, specData, abilDetails, frName, frDesc }) {
 }
 
 function renderPaneCombat({ types }) {
-  const defM   = defMatchups(types);
-  const weakE  = Object.entries(defM).filter(([, m]) => m > 1).sort((a, b) => b[1] - a[1]);
-  const resistE= Object.entries(defM).filter(([, m]) => m > 0 && m < 1).sort((a, b) => a[1] - b[1]);
-  const immuneE= Object.entries(defM).filter(([, m]) => m === 0);
-  const covTypes = offCoverage(types);
+  const defM    = defMatchups(types);
+  const weakE   = Object.entries(defM).filter(([, m]) => m > 1).sort((a, b) => b[1] - a[1]);
+  const resistE = Object.entries(defM).filter(([, m]) => m > 0 && m < 1).sort((a, b) => a[1] - b[1]);
+  const immuneE = Object.entries(defM).filter(([, m]) => m === 0);
+  const covTypes  = offCoverage(types);
   const typeNames = types.map((t) => TYPE_FR[t] ?? t).join(' + ');
 
   return /* html */`
@@ -408,7 +446,7 @@ function renderPaneStrat({ smogonData }) {
     ${sets.length ? `
       <div class="section-title">Sets recommandés</div>
       ${sets.map(renderSetCard).join('')}
-    ` : `<div class="desc-box">Aucune donnée Smogon pour ce Pokémon.</div>`}
+    ` : `<div class="desc-box desc-box--muted">Aucune donnée Smogon pour ce Pokémon.</div>`}
 
     ${items.length ? `
       <div class="section-title">Objets populaires</div>
@@ -427,15 +465,15 @@ function renderPaneStrat({ smogonData }) {
   `;
 }
 
-async function renderPaneEvo({ specData }) {
+async function renderPaneEvo({ specData, currentName }) {
   const chain = await fetchEvolution(specData);
   if (chain.length <= 1) {
-    return `<div class="desc-box">Pas de chaîne d'évolution.</div>`;
+    return `<div class="desc-box desc-box--muted">Pas de chaîne d'évolution.</div>`;
   }
   const sprites = await Promise.all(chain.map(fetchSprite));
   const items = chain.map((slug, i) => /* html */`
     ${i > 0 ? '<span class="evo-arrow">→</span>' : ''}
-    <div class="evo-mon" onclick="window.__dex.load('${slug}')">
+    <div class="evo-mon ${slug === currentName ? 'evo-mon--current' : ''}" onclick="window.__dex.load('${slug}')" tabindex="0" role="button" aria-label="Voir ${esc(slug)}">
       <img src="${sprites[i] ?? ''}" alt="${esc(slug)}" loading="lazy">
       <div class="evo-name">${esc(slug)}</div>
     </div>
@@ -454,7 +492,11 @@ async function renderPaneEvo({ specData }) {
 
 function setTab(id) {
   state.activeTab = id;
-  document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === id));
+  document.querySelectorAll('.tab').forEach((el) => {
+    const active = el.dataset.tab === id;
+    el.classList.toggle('active', active);
+    el.setAttribute('aria-selected', String(active));
+  });
   document.querySelectorAll('.pane').forEach((el) => el.classList.toggle('active', el.id === `pane-${id}`));
 }
 
@@ -467,6 +509,11 @@ async function loadPokemon(input) {
   const rawInput = input.trim();
   if (!rawInput) return;
 
+  /* ── Anti-concurrence : un jeton par requête, les réponses tardives
+     d'une recherche annulée sont ignorées (corrige les races sur clics rapides) ── */
+  const myRequestId = ++state.requestId;
+  const isStale = () => myRequestId !== state.requestId;
+
   /* ── Resolve slug ── */
   let slug = rawInput.toLowerCase();
   if (!/^\d+$/.test(slug) && state.frMapReady) {
@@ -476,7 +523,6 @@ async function loadPokemon(input) {
   /* ── Reset UI ── */
   const sprite = document.getElementById('sprite');
   sprite.style.opacity = '0';
-  sprite.src = '';
   document.getElementById('poke-id').textContent = '';
   document.getElementById('ms-name').textContent = '— — —';
   document.getElementById('ms-status').textContent = 'POKÉDEX';
@@ -484,15 +530,16 @@ async function loadPokemon(input) {
   document.getElementById('xp-fill').style.width = '0%';
   document.getElementById('type-row').innerHTML = '';
   document.getElementById('stats-section').innerHTML = '';
-  ['info', 'combat', 'strat', 'evo'].forEach((t) => {
-    document.getElementById(`pane-${t}`).innerHTML =
-      `<div class="state-msg state-msg--loading">CHARGEMENT…</div>`;
-  });
+  document.getElementById('pane-info').innerHTML   = skeleton(4);
+  document.getElementById('pane-combat').innerHTML = skeleton(3);
+  document.getElementById('pane-strat').innerHTML  = skeleton(3);
+  document.getElementById('pane-evo').innerHTML    = skeleton(2);
   document.getElementById('screen-wrap').classList.add('screen--loading');
 
   try {
     /* ── Fetch core data ── */
     const { pokeData, specData } = await fetchPokemon(slug);
+    if (isStale()) return;
 
     /* ── Extract common values ── */
     const frName = specData.names?.find((n) => n.language.name === 'fr')?.name ?? pokeData.name;
@@ -503,13 +550,14 @@ async function loadPokemon(input) {
     const total  = stats.reduce((acc, s) => acc + s.base_stat, 0);
     const spriteUrl = pokeData.sprites?.other?.['official-artwork']?.front_default
                    ?? pokeData.sprites?.front_default ?? '';
+    cache.sprite.set(pokeData.name, spriteUrl);
 
     /* ── Update mini-screen ── */
     document.getElementById('ms-status').textContent = `#${String(pokeData.id).padStart(4, '0')}`;
     document.getElementById('ms-name').textContent   = frName.toUpperCase();
     const cat = specData.genera?.find((g) => g.language.name === 'fr')?.genus ?? '';
     document.getElementById('ms-cat').textContent    = cat;
-    document.getElementById('xp-fill').style.width  = `${Math.round(total / 720 * 100)}%`;
+    document.getElementById('xp-fill').style.width   = `${Math.round(total / 720 * 100)}%`;
 
     /* ── Update left panel ── */
     document.getElementById('poke-id').textContent = `#${String(pokeData.id).padStart(4, '0')} — ${frName.toUpperCase()}`;
@@ -523,12 +571,14 @@ async function loadPokemon(input) {
       `<div class="stat-total">TOTAL ${total}</div>`;
 
     /* ── Sprite ── */
-    sprite.src     = spriteUrl;
     sprite.onload  = () => {
+      if (isStale()) return;
       sprite.style.opacity = '1';
       document.getElementById('screen-wrap').classList.remove('screen--loading');
     };
     sprite.onerror = () => { document.getElementById('screen-wrap').classList.remove('screen--loading'); };
+    sprite.src = spriteUrl;
+    if (sprite.complete && sprite.naturalWidth) sprite.onload();
 
     /* ── Animate stat bars ── */
     requestAnimationFrame(() => {
@@ -546,20 +596,19 @@ async function loadPokemon(input) {
         desc  : await fetchAbilDesc(a.ability.url),
       }))),
     ]);
+    if (isStale()) return;
 
     /* ── Render panes ── */
     document.getElementById('pane-info').innerHTML = renderPaneInfo({
-      pokeData, specData, abilDetails, frName, frDesc,
+      pokeData, specData, abilDetails, frDesc,
     });
-
     document.getElementById('pane-combat').innerHTML = renderPaneCombat({ types });
-
-    document.getElementById('pane-strat').innerHTML = renderPaneStrat({ smogonData });
+    document.getElementById('pane-strat').innerHTML  = renderPaneStrat({ smogonData });
 
     /* Evo is async — render placeholder then fill */
-    document.getElementById('pane-evo').innerHTML =
-      `<div class="state-msg state-msg--loading">CHARGEMENT…</div>`;
-    renderPaneEvo({ specData }).then((html) => {
+    document.getElementById('pane-evo').innerHTML = skeleton(2);
+    renderPaneEvo({ specData, currentName: pokeData.name }).then((html) => {
+      if (isStale()) return;
       document.getElementById('pane-evo').innerHTML = html;
     });
 
@@ -567,9 +616,11 @@ async function loadPokemon(input) {
     setTab(state.activeTab);
 
   } catch (err) {
+    if (isStale()) return;
     console.error('[Pokédex]', err);
     document.getElementById('pane-info').innerHTML =
       `<div class="state-msg state-msg--error">INTROUVABLE<br><span style="font-size:var(--fz-pixel-xs);color:rgba(255,255,255,.3)">Essaie le nom anglais ou le #ID</span></div>`;
+    ['combat', 'strat', 'evo'].forEach((t) => { document.getElementById(`pane-${t}`).innerHTML = ''; });
     document.getElementById('screen-wrap').classList.remove('screen--loading');
     const inp = document.getElementById('q');
     inp.classList.add('shake');
@@ -604,8 +655,9 @@ window.__dex = {
 ───────────────────────────────────────────────────────────── */
 
 document.addEventListener('DOMContentLoaded', () => {
-  /* Start building FR name map in background */
+  /* Start building FR name map in background — does not block first load */
   buildFrMap();
+  loadAllSmogonTiers();
 
   /* Enter key on input */
   document.getElementById('q').addEventListener('keydown', (e) => {
